@@ -25,5 +25,7 @@
   "devDependencies": {
     "typescript": "^5.8.3"
   },
-  "files": ["lib/**/*"]
+  "files": [
+    "lib/**/*"
+  ]
 }
