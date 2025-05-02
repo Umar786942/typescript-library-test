@@ -1,0 +1,29 @@
+{
+  "name": "typescript-colorify",
+  "version": "1.0.0",
+  "description": "A library to colorify your text in the console.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Umar786942/typescript-library-test.git"
+  },
+  "keywords": [
+    "console log colors",
+    "colorify logs"
+  ],
+  "author": "Amish Umar <amishumar8@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Umar786942/typescript-library-test/issues"
+  },
+  "homepage": "https://github.com/Umar786942/typescript-library-test#readme",
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "files": ["lib/**/*"]
+}
