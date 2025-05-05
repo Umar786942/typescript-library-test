@@ -9,3 +9,5 @@ export class Log{
         console.log(`%c ${message}` , 'color:black ; background: yellow'); // yellow background
     }
 }
+
+export * from './helper/MathOperations';
