@@ -11,3 +11,5 @@ export class Log{
 }
 
 export * from './helper/MathOperations';
+export * from './auth/authUtils'; // Functional API
+export { AuthService } from './auth/AuthService'; // Class API
