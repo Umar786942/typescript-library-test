@@ -13,8 +13,12 @@
     "url": "git+https://github.com/Umar786942/typescript-library-test.git"
   },
   "keywords": [
-    "console log colors",
-    "colorify logs"
+    "sip",
+    "voip",
+    "webrtc",
+    "react",
+    "angular",
+    "communication"
   ],
   "author": "Amish Umar <amishumar8@gmail.com>",
   "license": "ISC",
@@ -35,5 +39,9 @@
   },
   "files": [
     "dist/**/*"
-  ]
+  ],
+  "peerDependencies": {
+    "jssip": "^3.10.1",
+    "moment": "^2.30.1"
+  }
 }

@@ -13,3 +13,6 @@ export class Log{
 export * from './helper/MathOperations';
 export * from './auth/authUtils'; // Functional API
 export { AuthService } from './auth/AuthService'; // Class API
+
+export {SipManager} from './sip/SipManager'; // Class API
+export type {SipConfig, SipStatus, SipSession, CallStatus, CallDirection, ConnectionPayload} from './sip/types'
