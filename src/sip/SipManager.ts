@@ -11,6 +11,7 @@ import {
   CallDirection,
   ConnectionPayload,
   RTCConfig,
+  SipState,
 } from "./types";
 import { sipReducer, defaultSipState } from "./SipReducer";
 import { eventHandlers } from "./SipEvents";
@@ -19,20 +20,43 @@ import moment from "moment";
 
 export class SipManager extends EventEmitter {
   private ua: JsSIP.UA | null = null;
-  private state = defaultSipState;
+  private state:SipState = defaultSipState;
   private config: SipConfig;
   private _reffered: { _uuid: string; _number: string } | null = null;
 
   constructor(config: SipConfig) {
     super();
     this.config = config;
+     // Bind all public methods
+     this.start = this.start.bind(this);
+      this.stop = this.stop.bind(this);
+      
+     this._makeCall = this._makeCall.bind(this);
+     this._answerCall = this._answerCall.bind(this);
+     this._terminate = this._terminate.bind(this);
+     this._toggleHold = this._toggleHold.bind(this);
+      this._hold = this._hold.bind(this);
+      this._unHold = this._unHold.bind(this);
+      this._muteCall = this._muteCall.bind(this);
+      this._sendDtmf = this._sendDtmf.bind(this);
+      this._referUser = this._referUser.bind(this);
+      this._attendedTransfer = this._attendedTransfer.bind(this);
+      this._speakerOff = this._speakerOff.bind(this);
+      this._speakerOn = this._speakerOn.bind(this);
+      this._nbTerminate = this._nbTerminate.bind(this);
+      this._passInfo = this._passInfo.bind(this);
     this.initialize();
+  }
+
+  public get _state(): Readonly<SipState> {
+    return this.state;
   }
 
   /**
    * Initialize the SIP UA (User Agent)
    */
   private initialize(): void {
+    console.log("Initializing SipManager...")
     try {
       const socket = new JsSIP.WebSocketInterface(this.config.sockets[0]); //we have to send socket url as sockets['url']
       //   JsSIP.debug.disable('JsSIP:*');
@@ -45,10 +69,14 @@ export class SipManager extends EventEmitter {
         session_timers: this.config.session_timers,
         registrar_server: this.config.registrar_server,
       });
+      console.log('UA created, starting...');
       this.ua.start();
+      console.log('Setting up event listeners...');
       this.setupEventListeners();
+      console.log('Initialization complete');
     } catch (error) {
-      this.emit("error", `Error while initializing SIP: ${error}`);
+      // this.emit("error", `Error while initializing SIP: ${error}`);
+      console.log("error", `Error while initializing SIP: ${error}`);
     }
   }
 
@@ -92,7 +120,7 @@ export class SipManager extends EventEmitter {
           _uiSession: { [callId]: newSession },
           _uaSession: { [callId]: session },
         },
-      });
+      }, callId);
 
       // Setup session event handlers
       eventHandlers(session, callId, {
@@ -106,7 +134,7 @@ export class SipManager extends EventEmitter {
         onRecording: (event) => this.handleCallRecording(callId, event),
       });
 
-      this.emit("callStarted", newSession);
+      
     });
   }
 
@@ -117,7 +145,8 @@ export class SipManager extends EventEmitter {
     try {
       this.ua?.start();
     } catch (error) {
-      this.emit("error", `Connection error: ${error}`);
+      // this.emit("error", `Connection error: ${error}`);
+      console.log("error", `Connection error: ${error}`);
     }
   }
 
@@ -128,7 +157,8 @@ export class SipManager extends EventEmitter {
     try {
       this.ua?.stop();
     } catch (error) {
-      this.emit("error", `Connection break error: ${error}`);
+      // this.emit("error", `Connection break error: ${error}`);
+      console.log("error", `Connection break error: ${error}`);
     }
   }
 
@@ -144,12 +174,24 @@ export class SipManager extends EventEmitter {
     connectionPayload?: ConnectionPayload,
     _config?: RTCConfig
   ): void {
+    if (!this.state) {
+      console.error('SipManager: state not initialized');
+      return;
+    }
+  
+    // Add UA existence check
+    if (!this.ua) {
+      console.error('SipManager: UA not initialized');
+      return;
+    }
+
     if (
       !(callMeAt || this.state._number) ||
       this.state._status !== "registered" ||
       !this.ua
     ) {
-      this.emit("error", "Cannot make call - not registered or invalid number");
+      // this.emit("error", "Cannot make call - not registered or invalid number");
+      console.log("error", "Cannot make call - not registered or invalid number");
       return;
     }
 
@@ -456,7 +498,8 @@ export class SipManager extends EventEmitter {
       _type: "_SET_STATUS",
       _payload: status,
     });
-    this.emit("statusChange", status);
+    // this.emit("statusChange", status);
+    console.log("statusChange", status);
   }
 
   /**
@@ -472,8 +515,10 @@ export class SipManager extends EventEmitter {
 
     const session = this.state._uiSessions[callId];
     if (session) {
-      this.emit("callUpdated", session);
+      // this.emit("callUpdated", session);
+      console.log("callUpdated", {newSate: this.state, uiSession :session});
     }
+    // console.log("callUpdated", this.state);
   }
 
   /**
@@ -486,10 +531,12 @@ export class SipManager extends EventEmitter {
       _payload: callId,
     });
 
-    const session = this.state._uiSessions[callId];
-    if (session) {
-      this.emit("callEnded", session);
-    }
+    // const session = this.state._uiSessions[callId];
+    // if (session) {
+    //   // this.emit("callEnded", session);
+    //   console.log("callEnded", session);
+    // }
+    console.log("callEnded", this.state);
   }
   /**
    * Handle call end
@@ -503,8 +550,10 @@ export class SipManager extends EventEmitter {
 
     const session = this.state._uiSessions[callId];
     if (session) {
-      this.emit("callFailed", session);
+      // this.emit("callFailed", session);
+      console.log("callFailed", {newSate: this.state, uiSession :session});
     }
+    // console.log("callFailed", this.state);
   }
 
   /**
@@ -516,6 +565,7 @@ export class SipManager extends EventEmitter {
       _type: "_HOLD_CALL",
       _payload: callId,
     });
+    console.log("callHold", this.state);
   }
 
   /**
@@ -527,6 +577,7 @@ export class SipManager extends EventEmitter {
       _type: "_UNHOLD_CALL",
       _payload: callId,
     });
+    console.log("callUnhold", this.state);
   }
 
   /**
@@ -564,7 +615,14 @@ export class SipManager extends EventEmitter {
    * Update the internal state
    * @param action - The action to perform on the state
    */
-  private updateState(action: any): void {
+  private updateState(action: any, callId : string): void {
     this.state = sipReducer(this.state, action);
+    const session = this.state._uiSessions[callId];
+    if (session) {
+      // this.emit("callUpdated", session);
+      console.log("callStarted", {newSate: this.state, uiSession :session});
+    }
+    // this.emit("callStarted", newSession);
+    // console.log("callStarted", this.state);
   }
 }
