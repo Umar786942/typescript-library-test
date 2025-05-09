@@ -18,11 +18,15 @@ import { eventHandlers } from "./SipEvents";
 import { _referUserHandler, getPcConfigs } from "./SipUtils";
 import moment from "moment";
 
+// Define callback type for state updates
+type StateUpdateCallback = (newState: SipState) => void;
+
 export class SipManager extends EventEmitter {
   private ua: JsSIP.UA | null = null;
   private state:SipState = defaultSipState;
   private config: SipConfig;
   private _reffered: { _uuid: string; _number: string } | null = null;
+  private stateUpdateCallbacks: StateUpdateCallback[] = [];
 
   constructor(config: SipConfig) {
     super();
@@ -45,8 +49,33 @@ export class SipManager extends EventEmitter {
       this._speakerOn = this._speakerOn.bind(this);
       this._nbTerminate = this._nbTerminate.bind(this);
       this._passInfo = this._passInfo.bind(this);
-    this.initialize();
+      this.subscribeToState = this.subscribeToState.bind(this);
+      this.unsubscribeFromState = this.unsubscribeFromState.bind(this);
+      this.initialize();
   }
+ /**
+   * Subscribe to state updates
+   * @param callback - Function to call when state changes
+   * @returns Unsubscribe function
+   */
+ public subscribeToState(callback: StateUpdateCallback): () => void {
+  this.stateUpdateCallbacks.push(callback);
+  // Immediately send current state to new subscriber
+  callback(this.state);
+  return () => this.unsubscribeFromState(callback);
+}
+public unsubscribeFromState(callback: StateUpdateCallback): void {
+  this.stateUpdateCallbacks = this.stateUpdateCallbacks.filter(
+    (cb) => cb !== callback
+  );
+}
+
+/**
+   * Notify all subscribers of state changes
+   */
+private notifyStateChange(): void {
+  this.stateUpdateCallbacks.forEach((callback) => callback(this.state));
+}
 
   public get _state(): Readonly<SipState> {
     return this.state;
@@ -494,6 +523,7 @@ export class SipManager extends EventEmitter {
    * @param status - The new status
    */
   private updateStatus(status: SipStatus): void {
+    //for updating ua status
     this.state = sipReducer(this.state, {
       _type: "_SET_STATUS",
       _payload: status,
@@ -508,17 +538,29 @@ export class SipManager extends EventEmitter {
    * @param status - The new call status
    */
   private handleCallStatusChange(callId: string, status: CallStatus): void {
+    //for updating call status
+    const prevState = this.state;
     this.state = sipReducer(this.state, {
       _type: "_UPDATE_CALL",
       _payload: { _call_id: callId, _status: status },
     });
 
-    const session = this.state._uiSessions[callId];
-    if (session) {
-      // this.emit("callUpdated", session);
-      console.log("callUpdated", {newSate: this.state, uiSession :session});
+     // Only notify if state actually changed
+     if (this.state !== prevState) {
+      this.notifyStateChange();
+      
+      // const session = this.state._uiSessions[callId];
+      // if (session) {
+      //   this.emit("callUpdated", session);
+      // }
     }
-    // console.log("callUpdated", this.state);
+
+    // const session = this.state._uiSessions[callId];
+    // if (session) {
+    //   // this.emit("callUpdated", session);
+    //   console.log("callUpdated", {newSate: this.state, uiSession :session});
+    // }
+    
   }
 
   /**
@@ -526,34 +568,54 @@ export class SipManager extends EventEmitter {
    * @param callId - The ID of the call that ended
    */
   private handleCallEnd(callId: string): void {
+    const prevState = this.state;
     this.state = sipReducer(this.state, {
       _type: "_COMPLETE_CALL",
       _payload: callId,
     });
+    // Only notify if state actually changed
+    if (this.state !== prevState) {
+      this.notifyStateChange();
+      
+      // const session = this.state._uiSessions[callId];
+      // if (session) {
+      //   this.emit("callEnded", session);
+      // }
+    }
 
     // const session = this.state._uiSessions[callId];
     // if (session) {
     //   // this.emit("callEnded", session);
     //   console.log("callEnded", session);
     // }
-    console.log("callEnded", this.state);
+    
   }
   /**
    * Handle call end
    * @param callId - The ID of the call that ended
    */
   private handleCallFailed(callId: string): void {
+    const prevState = this.state;
     this.state = sipReducer(this.state, {
       _type: "_FAILED_CALL",
       _payload: callId,
     });
-
-    const session = this.state._uiSessions[callId];
-    if (session) {
-      // this.emit("callFailed", session);
-      console.log("callFailed", {newSate: this.state, uiSession :session});
+     // Only notify if state actually changed
+     if (this.state !== prevState) {
+      this.notifyStateChange();
+      
+      // const session = this.state._uiSessions[callId];
+      // if (session) {
+      //   this.emit("callFailed", session);
+      // }
     }
-    // console.log("callFailed", this.state);
+
+    // const session = this.state._uiSessions[callId];
+    // if (session) {
+    //   // this.emit("callFailed", session);
+    //   console.log("callFailed", {newSate: this.state, uiSession :session});
+    // }
+   
   }
 
   /**
@@ -561,11 +623,21 @@ export class SipManager extends EventEmitter {
    * @param callId - The ID of the call that was held
    */
   private handleCallHold(callId: string): void {
+    const prevState = this.state;
     this.state = sipReducer(this.state, {
       _type: "_HOLD_CALL",
       _payload: callId,
     });
-    console.log("callHold", this.state);
+     // Only notify if state actually changed
+     if (this.state !== prevState) {
+      this.notifyStateChange();
+      
+      // const session = this.state._uiSessions[callId];
+      // if (session) {
+      //   this.emit("callHold", session);
+      // }
+    }
+   
   }
 
   /**
@@ -573,11 +645,21 @@ export class SipManager extends EventEmitter {
    * @param callId - The ID of the call that was unheld
    */
   private handleCallUnhold(callId: string): void {
+    const prevState = this.state;
     this.state = sipReducer(this.state, {
       _type: "_UNHOLD_CALL",
       _payload: callId,
     });
-    console.log("callUnhold", this.state);
+        // Only notify if state actually changed
+        if (this.state !== prevState) {
+          this.notifyStateChange();
+          
+          // const session = this.state._uiSessions[callId];
+          // if (session) {
+          //   this.emit("callUnhold", session);
+          // }
+        }
+    
   }
 
   /**
@@ -585,10 +667,20 @@ export class SipManager extends EventEmitter {
    * @param callId - The ID of the call that was muted
    */
   private handleCallMute(callId: string): void {
+    const prevState = this.state;
     this.state = sipReducer(this.state, {
       _type: "_MUTE_CALL",
       _payload: callId,
     });
+       // Only notify if state actually changed
+       if (this.state !== prevState) {
+        this.notifyStateChange();
+        
+        // const session = this.state._uiSessions[callId];
+        // if (session) {
+        //   this.emit("callMuted", session);
+        // }
+      }
   }
 
   /**
@@ -596,12 +688,23 @@ export class SipManager extends EventEmitter {
    * @param callId - The ID of the call that was unmuted
    */
   private handleCallUnmute(callId: string): void {
+    const prevState = this.state;
     this.state = sipReducer(this.state, {
       _type: "_UNMUTE_CALL",
       _payload: callId,
     });
+      // Only notify if state actually changed
+      if (this.state !== prevState) {
+        this.notifyStateChange();
+        
+        // const session = this.state._uiSessions[callId];
+        // if (session) {
+        //   this.emit("callUnmuted", session);
+        // }
+      }
   }
   private handleCallRecording(callId: string, event: any): void {
+    const prevState = this.state;
     this.state = sipReducer(this.state, {
       _type: "_RECORDING",
       _payload: {
@@ -609,6 +712,15 @@ export class SipManager extends EventEmitter {
         _recording: event,
       },
     });
+      // Only notify if state actually changed
+      if (this.state !== prevState) {
+        this.notifyStateChange();
+        
+        // const session = this.state._uiSessions[callId];
+        // if (session) {
+        //   this.emit("callRecordingStarted", session);
+        // }
+      }
   }
 
   /**
@@ -616,13 +728,24 @@ export class SipManager extends EventEmitter {
    * @param action - The action to perform on the state
    */
   private updateState(action: any, callId : string): void {
+    //for dispatch type New_Call
+    const prevState = this.state;
     this.state = sipReducer(this.state, action);
-    const session = this.state._uiSessions[callId];
-    if (session) {
-      // this.emit("callUpdated", session);
-      console.log("callStarted", {newSate: this.state, uiSession :session});
+    // Only notify if state actually changed
+    if (this.state !== prevState) {
+      this.notifyStateChange();
+      
+      // const session = this.state._uiSessions[callId];
+      // if (session) {
+      //   this.emit("callUpdated", session);
+      // }
     }
-    // this.emit("callStarted", newSession);
-    // console.log("callStarted", this.state);
+   
+    // const session = this.state._uiSessions[callId];
+    // if (session) {
+    //   // this.emit("callStarted", session);
+    //   console.log("callStarted", {newSate: this.state, uiSession :session});
+    // }
+  
   }
 }
